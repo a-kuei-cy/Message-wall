@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>興嘉留言牆</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Microsoft JhengHei", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px 10px;
+        }
+
+        .header h1 {
+            font-size: clamp(1.5em, 5vw, 2.5em);
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: clamp(0.9em, 3vw, 1em);
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            padding: 0 10px;
+        }
+
+        .add-note-btn, .admin-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: clamp(10px, 3vw, 15px) clamp(20px, 5vw, 40px);
+            font-size: clamp(0.9em, 2.5vw, 1.1em);
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .admin-btn {
+            background: #6c5ce7;
+        }
+
+        .admin-btn:hover, .add-note-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .admin-btn:active, .add-note-btn:active {
+            transform: translateY(0);
+        }
+
+        .admin-mode {
+            background: #00b894 !important;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.2em;
+            padding: 40px;
+        }
+
+        .wall-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+            gap: clamp(15px, 3vw, 30px);
+            padding: 10px;
+        }
+
+        .sticky-note {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            padding: clamp(15px, 4vw, 20px);
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            position: relative;
+            transition: all 0.3s ease;
+            min-height: 200px;
+            animation: fadeIn 0.5s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8) rotate(-5deg);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        .sticky-note:nth-child(4n+1) {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+            transform: rotate(-2deg);
+        }
+
+        .sticky-note:nth-child(4n+2) {
+            background: linear-gradient(135deg, #fab1a0 0%, #ff7675 100%);
+            transform: rotate(1deg);
+        }
+
+        .sticky-note:nth-child(4n+3) {
+            background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%);
+            color: white;
+            transform: rotate(-1deg);
+        }
+
+        .sticky-note:nth-child(4n+4) {
+            background: linear-gradient(135deg, #81ecec 0%, #00b894 100%);
+            transform: rotate(2deg);
+        }
+
+        .sticky-note:hover {
+            transform: scale(1.05) rotate(0deg) !important;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .note-clip {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: clamp(25px, 5vw, 30px);
+            height: clamp(25px, 5vw, 30px);
+            background: #e17055;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .note-date {
+            font-size: clamp(0.75em, 2vw, 0.8em);
+            opacity: 0.7;
+            margin-bottom: 10px;
+        }
+
+        .note-content {
+            font-size: clamp(0.9em, 2.5vw, 1em);
+            line-height: 1.6;
+            margin-bottom: 15px;
+            word-wrap: break-word;
+            flex-grow: 1;
+        }
+
+        .note-author {
+            text-align: right;
+            font-style: italic;
+            font-size: clamp(0.85em, 2vw, 0.9em);
+            opacity: 0.8;
+            margin-bottom: 10px;
+        }
+
+        .note-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: auto;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .like-btn {
+            background: rgba(255,255,255,0.7);
+            border: none;
+            padding: clamp(6px, 2vw, 8px) clamp(12px, 3vw, 15px);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: clamp(0.85em, 2vw, 0.9em);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .like-btn:hover {
+            background: rgba(255,255,255,0.9);
+            transform: scale(1.1);
+        }
+
+        .like-btn.liked {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .like-btn:active {
+            transform: scale(0.95);
+        }
+
+        .admin-actions {
+            display: none;
+            gap: 5px;
+        }
+
+        .admin-mode-active .admin-actions {
+            display: flex;
+        }
+
+        .edit-btn, .delete-btn {
+            background: rgba(255,255,255,0.8);
+            border: none;
+            width: clamp(28px, 6vw, 32px);
+            height: clamp(28px, 6vw, 32px);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: clamp(14px, 3vw, 16px);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .edit-btn:hover {
+            background: #00b894;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .delete-btn:hover {
+            background: #ff6b6b;
+            color: white;
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            padding: clamp(20px, 5vw, 30px);
+            border-radius: 15px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #2d3436;
+            font-size: clamp(1.2em, 4vw, 1.5em);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #2d3436;
+            font-weight: bold;
+            font-size: clamp(0.9em, 2.5vw, 1em);
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: clamp(8px, 2vw, 10px);
+            border: 2px solid #dfe6e9;
+            border-radius: 8px;
+            font-size: clamp(0.9em, 2.5vw, 1em);
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #6c5ce7;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: clamp(10px, 2.5vw, 12px);
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(0.9em, 2.5vw, 1em);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit {
+            background: #00b894;
+            color: white;
+        }
+
+        .btn-submit:hover {
+            background: #00a383;
+            transform: translateY(-2px);
+        }
+
+        .btn-cancel {
+            background: #dfe6e9;
+            color: #2d3436;
+        }
+
+        .btn-cancel:hover {
+            background: #b2bec3;
+        }
+
+        @media (max-width: 480px) {
+            .wall-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .sticky-note {
+                min-height: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌟 興嘉留言牆 🌟</h1>
+        <p>寫下你的心願和祝福</p>
+        <div class="header-buttons">
+            <button class="add-note-btn" onclick="openModal()">➕ 新增便簽</button>
+            <button class="admin-btn" id="adminBtn" onclick="toggleAdmin()">🔐 管理模式</button>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">載入中...</div>
+    <div class="wall-container" id="wallContainer" style="display: none;"></div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">建立新便簽</h2>
+            <form id="noteForm">
+                <div class="form-group">
+                    <label>內容：</label>
+                    <textarea id="noteContent" placeholder="寫下你的祝願..." required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>署名：</label>
+                    <input type="text" id="noteAuthor" placeholder="你的名字（可選）">
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-submit">確定</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="adminModal">
+        <div class="modal-content">
+            <h2>管理員登入</h2>
+            <form id="adminForm">
+                <div class="form-group">
+                    <label>密碼：</label>
+                    <input type="password" id="adminPassword" placeholder="請輸入管理員密碼" required autocomplete="off">
+                </div>
+                <div class="modal-buttons">
+                    <button type="submit" class="btn btn-submit">登入</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeAdminModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const ADMIN_PASSWORD = 's2860885110';
+        let isAdminMode = false;
+        let editingIndex = -1;
+        let notes = [];
+
+        function generateId() {
+            return Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function getUserId() {
+            let userId = localStorage.getItem('userId');
+            if (!userId) {
+                userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('userId', userId);
+            }
+            return userId;
+        }
+
+        async function initData() {
+            const timeout = setTimeout(() => {
+                console.error('載入超時');
+                document.getElementById('loading').innerHTML = '載入超時，切換為本地模式...<br><small>資料將僅保存在此瀏覽器</small>';
+                loadFromLocalStorage();
+            }, 5000);
+
+            try {
+                let result;
+                try {
+                    result = await Promise.race([
+                        window.storage.get('xingjiaNotes', true),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                    ]);
+                } catch (e) {
+                    console.log('雲端讀取失敗，使用本地儲存:', e.message);
+                    clearTimeout(timeout);
+                    loadFromLocalStorage();
+                    return;
+                }
+                
+                clearTimeout(timeout);
+                
+                if (result && result.value) {
+                    notes = JSON.parse(result.value);
+                } else {
+                    notes = getDefaultNotes();
+                    await saveNotes();
+                }
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('wallContainer').style.display = 'grid';
+                renderNotes();
+            } catch (error) {
+                clearTimeout(timeout);
+                console.error('載入資料失敗:', error);
+                loadFromLocalStorage();
+            }
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('xingjiaNotes');
+            if (saved) {
+                notes = JSON.parse(saved);
+            } else {
+                notes = getDefaultNotes();
+                localStorage.setItem('xingjiaNotes', JSON.stringify(notes));
+            }
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('wallContainer').style.display = 'grid';
+            renderNotes();
+        }
+
+        function getDefaultNotes() {
+            return [
+                { id: generateId(), content: "希望今年能考上理想的大學！加油！", author: "小明", date: "2024-06-22", likes: 5, likedBy: [] },
+                { id: generateId(), content: "祝願家人身體健康，平平安安", author: "小紅", date: "2024-06-18", likes: 8, likedBy: [] },
+                { id: generateId(), content: "今天天氣真好，風和日麗的", author: "路人甲", date: "2024-06-22", likes: 3, likedBy: [] },
+                { id: generateId(), content: "願所有夢想都能實現", author: "匿名", date: "2024-06-22", likes: 12, likedBy: [] },
+                { id: generateId(), content: "元旦快樂！新的一年，還是對自己好一點吧", author: "小李", date: "2016-03-01", likes: 6, likedBy: [] }
+            ];
+        }
+
+        async function saveNotes() {
+            try {
+                // 先保存到本地
+                localStorage.setItem('xingjiaNotes', JSON.stringify(notes));
+                
+                // 嘗試保存到雲端
+                try {
+                    const result = await Promise.race([
+                        window.storage.set('xingjiaNotes', JSON.stringify(notes), true),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+                    ]);
+                    if (!result) {
+                        console.warn('雲端儲存回傳空值');
+                    }
+                } catch (cloudError) {
+                    console.warn('雲端儲存失敗，已保存到本地:', cloudError.message);
+                }
+                return true;
+            } catch (error) {
+                console.error('儲存資料失敗:', error);
+                alert('儲存失敗: ' + error.message);
+                return false;
+            }
+        }
+
+        function renderNotes() {
+            const container = document.getElementById('wallContainer');
+            container.innerHTML = '';
+            const userId = getUserId();
+            
+            notes.forEach((note, index) => {
+                const noteDiv = document.createElement('div');
+                noteDiv.className = 'sticky-note' + (isAdminMode ? ' admin-mode-active' : '');
+                const isLiked = note.likedBy && note.likedBy.includes(userId);
+                
+                noteDiv.innerHTML = `
+                    <div class="note-clip"></div>
+                    <div class="note-date">${note.date}</div>
+                    <div class="note-content">${note.content}</div>
+                    <div class="note-author">—— ${note.author || '匿名'}</div>
+                    <div class="note-actions">
+                        <button class="like-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${note.id}')">
+                            ${isLiked ? '❤️' : '🤍'} ${note.likes || 0}
+                        </button>
+                        <div class="admin-actions">
+                            <button class="edit-btn" onclick="editNote(${index})" title="編輯">✎</button>
+                            <button class="delete-btn" onclick="deleteNote(${index})" title="刪除">×</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(noteDiv);
+            });
+        }
+
+        async function toggleLike(noteId) {
+            const note = notes.find(n => n.id === noteId);
+            if (!note) return;
+            
+            const userId = getUserId();
+            if (!note.likedBy) note.likedBy = [];
+            
+            const isLiked = note.likedBy.includes(userId);
+            
+            if (isLiked) {
+                note.likes = Math.max(0, (note.likes || 0) - 1);
+                note.likedBy = note.likedBy.filter(id => id !== userId);
+            } else {
+                note.likes = (note.likes || 0) + 1;
+                note.likedBy.push(userId);
+            }
+            
+            await saveNotes();
+            renderNotes();
+        }
+
+        function toggleAdmin() {
+            if (isAdminMode) {
+                isAdminMode = false;
+                document.getElementById('adminBtn').textContent = '🔐 管理模式';
+                document.getElementById('adminBtn').classList.remove('admin-mode');
+                renderNotes();
+            } else {
+                document.getElementById('adminModal').style.display = 'flex';
+            }
+        }
+
+        function closeAdminModal() {
+            document.getElementById('adminModal').style.display = 'none';
+            document.getElementById('adminForm').reset();
+        }
+
+        document.getElementById('adminForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const password = document.getElementById('adminPassword').value.trim();
+            
+            if (password === ADMIN_PASSWORD) {
+                isAdminMode = true;
+                document.getElementById('adminBtn').textContent = '✓ 管理模式';
+                document.getElementById('adminBtn').classList.add('admin-mode');
+                closeAdminModal();
+                renderNotes();
+            } else {
+                alert('密碼錯誤！請重新輸入。');
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPassword').focus();
+            }
+        });
+
+        function openModal(isEdit = false) {
+            document.getElementById('modal').style.display = 'flex';
+            document.getElementById('modalTitle').textContent = isEdit ? '編輯便簽' : '建立新便簽';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('noteForm').reset();
+            editingIndex = -1;
+        }
+
+        function editNote(index) {
+            if (!isAdminMode) return;
+            
+            editingIndex = index;
+            const note = notes[index];
+            document.getElementById('noteContent').value = note.content;
+            document.getElementById('noteAuthor').value = note.author || '';
+            openModal(true);
+        }
+
+        async function deleteNote(index) {
+            if (!isAdminMode) return;
+            
+            if (confirm('確定要刪除這個便簽嗎？')) {
+                notes.splice(index, 1);
+                await saveNotes();
+                renderNotes();
+            }
+        }
+
+        document.getElementById('noteForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const content = document.getElementById('noteContent').value.trim();
+            const author = document.getElementById('noteAuthor').value.trim() || '匿名';
+            
+            if (!content) {
+                alert('請輸入便簽內容！');
+                return;
+            }
+            
+            const submitBtn = this.querySelector('.btn-submit');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '儲存中...';
+            
+            try {
+                if (editingIndex >= 0) {
+                    notes[editingIndex].content = content;
+                    notes[editingIndex].author = author;
+                } else {
+                    const date = new Date().toISOString().split('T')[0];
+                    notes.unshift({ 
+                        id: generateId(),
+                        content, 
+                        author, 
+                        date, 
+                        likes: 0,
+                        likedBy: []
+                    });
+                }
+                
+                const success = await saveNotes();
+                if (success) {
+                    renderNotes();
+                    closeModal();
+                }
+            } catch (error) {
+                alert('操作失敗: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '確定';
+            }
+        });
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            const adminModal = document.getElementById('adminModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+            if (event.target === adminModal) {
+                closeAdminModal();
+            }
+        }
+
+        initData();
+    </script>
+</body>
+</html>
